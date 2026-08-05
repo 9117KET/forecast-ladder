@@ -4,8 +4,9 @@ This doubles as the script for the recorded demo and as preparation for being as
 Nothing here can be answered by naming a library, which is the test each section is written
 against.
 
-Numbers marked `[from headline.json]` are filled from `results/published/headline.json` after
-a run, so this file and the README always quote the same figures.
+Every number here is read from `results/published/headline.json` and `ladder.csv`, so this
+file, the README and the case study always quote the same figures. Re-run `scripts/analyse.py`
+and they all move together.
 
 ---
 
@@ -13,6 +14,10 @@ a run, so this file and the README always quote the same figures.
 
 A forecasting comparison on real retail demand where the point was not to find the best
 model, but to find out where model complexity stops paying for itself.
+
+The headline: a pretrained model that had never seen the data came within one percent of the
+best model trained on it (MASE 1.040 against 1.032) using a nineteenth of the compute, and
+LightGBM, the family that won the M5 competition, came last.
 
 Five rungs, from a one-line seasonal naive up to a pretrained transformer, all scored under
 one protocol declared before any of them ran. The result is a rule about which items deserve
@@ -167,8 +172,9 @@ its forward pass, using patterns learned from other series. It is the same trans
 argument that lets a pretrained language model handle text it never saw in training.
 
 Chronos-Bolt in particular predicts a set of quantiles directly rather than sampling many
-paths, which is why it is fast: `[from headline.json]` seconds across the whole sample,
-making it one of the cheapest rungs to run and cheaper than fitting ARIMA.
+paths, which is why it is fast: 36.9 seconds across the whole sample of 300 series and four
+folds, against 487.9 for the classical rung and 699.6 for the neural one. It is the second
+cheapest rung after the naive, and cheaper than fitting ARIMA by a factor of 13.
 
 The honest caveat: zero-shot means no fitting, not no cost. The cost was paid once, by
 somebody else, during pretraining.
@@ -186,8 +192,8 @@ the quantile
 
     q* = stockout cost / (stockout cost + overstock cost)
 
-the **critical ratio**. With the assumptions in `economics.py` it comes out at
-`[from headline.json]`, so the cost-optimal order sits above the median.
+the **critical ratio**. With the assumptions in `economics.py` it comes out at 0.549, so the
+cost-optimal order sits just above the median.
 
 **Why that matters more than it sounds.** It means a point forecast cannot answer the business
 question at all, however accurate it is. You need the distribution, calibrated at the

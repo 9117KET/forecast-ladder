@@ -35,7 +35,9 @@ re-expressed in euros through the newsvendor problem.
 
 | Model | MASE mean | MASE median | Beats naive | Coverage (target 80%) | Runtime | EUR / series-day |
 | --- | --- | --- | --- | --- | --- | --- |
-| Chronos-Bolt, zero-shot | **1.040** | **0.790** | **95.0%** | **79.7%** | **37 s** | **1.195** |
+| N-HiTS | **1.032** | **0.786** | 94.7% | 78.9% | 700 s | **1.192** |
+| Chronos-Bolt, zero-shot | 1.040 | 0.790 | **95.0%** | **79.7%** | **37 s** | 1.195 |
+| PatchTST | 1.077 | 0.829 | 93.3% | 82.8% | 700 s | 1.211 |
 | AutoARIMA | 1.215 | 0.942 | 77.0% | 86.2% | 488 s | 1.306 |
 | AutoETS | 1.216 | 0.931 | 77.7% | 85.7% | 488 s | 1.286 |
 | Seasonal naive | 1.383 | 1.073 | floor | 85.5% | 13 s | 1.523 |
@@ -43,11 +45,12 @@ re-expressed in euros through the newsvendor problem.
 
 Three findings, in order of how much they change a decision.
 
-**1. A model that had never seen this data beat every model fitted to it.** Chronos-Bolt was
-best on point accuracy, best calibrated (79.7 percent coverage against an 80 percent target,
-where every fitted method over-covered), and cheapest to run of everything except the naive:
-37 seconds against 488 for the classical rung. It has no fitting step. The compute was paid
-once, by somebody else, during pretraining.
+**1. A model that had never seen this data came within one percent of the best model trained on
+it, at a nineteenth of the compute.** N-HiTS took the top MASE at 1.032. Chronos-Bolt, zero-shot,
+scored 1.040 in 37 seconds against N-HiTS's 700, was the better calibrated of the two (79.7
+against 78.9 percent, target 80) and beat the floor on marginally more series. It performs no
+fitting at all: the compute was paid once, by somebody else, during pretraining. Both cleared
+AutoARIMA and AutoETS by a wide margin.
 
 **2. The gradient-boosted model, which is the method that won M5, came last.** Its mean MASE of
 2.33 is worse than doing nothing clever, and its 57.6 percent coverage means its intervals are
@@ -58,20 +61,20 @@ will under-size every safety buffer computed from it. It was fitted globally wit
 **3. Whether complexity pays is decided by intermittency, monotonically.** Win rate against the
 naive floor, by quartile of the share of zero-demand days:
 
-| Zero-day share | AutoETS | AutoARIMA | LightGBM | Chronos-Bolt |
-| --- | --- | --- | --- | --- |
-| 0.04 to 0.43 (dense) | 93.3% | 89.3% | 93.3% | 97.3% |
-| 0.43 to 0.63 | 88.0% | 85.3% | 74.7% | 96.0% |
-| 0.63 to 0.78 | 69.3% | 69.3% | 28.0% | 97.3% |
-| 0.78 to 0.97 (sparse) | 60.0% | 64.0% | **6.7%** | 89.3% |
+| Zero-day share | AutoETS | AutoARIMA | LightGBM | N-HiTS | PatchTST | Chronos-Bolt |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0.04 to 0.43 (dense) | 93.3% | 89.3% | 93.3% | 96.0% | 94.7% | 97.3% |
+| 0.43 to 0.63 | 88.0% | 85.3% | 74.7% | 97.3% | 97.3% | 96.0% |
+| 0.63 to 0.78 | 69.3% | 69.3% | 28.0% | 96.0% | 93.3% | 97.3% |
+| 0.78 to 0.97 (sparse) | 60.0% | 64.0% | **6.7%** | 89.3% | 88.0% | 89.3% |
 
 LightGBM goes from beating the baseline on 93 percent of dense series to 6.7 percent of sparse
-ones. The classical methods degrade too, from roughly 90 percent to roughly 62. Only the
-foundation model holds up.
+ones. The classical methods degrade too, from roughly 90 percent to roughly 62. The neural and
+foundation models hold up.
 
-On 12 of the 300 series (4.0 percent) nothing on the ladder beat the naive at all. Those series
-are the slow, sparse tail: median zero-day share 0.86 against 0.62 elsewhere, and a median gap
-between sales of 8.5 days against 2.6.
+On 11 of the 300 series (3.7 percent) nothing on the ladder beat the naive at all. Those series
+are the slow, sparse tail: median zero-day share 0.92 against 0.62 elsewhere, a median gap
+between sales of 11.8 days against 2.6, and a median daily demand of 0.10 units against 0.66.
 
 ## The business case
 
@@ -111,9 +114,9 @@ the ratio lands at 0.549, which is a service level a planner would recognise.
 
 ### What it is worth
 
-Against the seasonal naive, the best model saves **EUR 0.327 per series-day**
-(1.523 against 1.195). Across the 300-series sample and its 33,600 forecast series-days that is
-about **EUR 11,000**, and the ratio scales: on a 30,000-series catalogue it is roughly
+Against the seasonal naive, the best model saves **EUR 0.330 per series-day**
+(1.523 against 1.192). Across the 300-series sample and its 33,600 forecast series-days that is
+about **EUR 11,100**, and the ratio scales: on a 30,000-series catalogue it is roughly
 **EUR 3.6 million a year**, on these assumptions.
 
 That number should be read with its assumptions attached and with one more caveat: it is the
@@ -122,8 +125,10 @@ order quantity is set from the forecast with no other constraint, no minimum ord
 shelf capacity and no supplier lead time.
 
 **Sensitivity.** Re-costing the whole comparison across a 3 x 3 grid of write-off fraction (10,
-30, 60 percent) and gross margin (15, 28, 40 percent), Chronos-Bolt is cheapest in 8 of the 9
-cells and AutoETS in 1. The ranking is a property of the forecasts, not of the cost assumptions.
+30, 60 percent) and gross margin (15, 28, 40 percent): N-HiTS is cheapest in 6 of the 9 cells,
+Chronos-Bolt in 2 and AutoETS in 1. The top of the table is stable under the cost assumptions
+moving; the ordering within the top three is not, and it should not be reported as though it
+were, given they sit within one percent of each other on accuracy.
 
 ### The result that argues against the theory
 
@@ -156,7 +161,10 @@ Written here rather than left for a reader to find.
   times. Both reasons are real.
 - **AutoARIMA's search space is bounded** for tractability. If it lost, part of the reason may
   be that it was not allowed to look further.
-- **The neural tier had a fixed step budget on one CPU** with no early stopping.
+- **The neural tier had a fixed step budget on one CPU** with no early stopping: 400 steps per
+  model per fold, which is what its 700 seconds bought. With more compute N-HiTS and PatchTST
+  would likely separate further from the zero-shot model, and the cost column would separate
+  further too.
 - **No intermittent-demand specialist was tested.** On a sample averaging 60 percent zero days,
   Croston's method and its variants exist for exactly these series, and their absence is the
   largest gap in the ladder.

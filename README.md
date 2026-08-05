@@ -83,8 +83,60 @@ Written by `scripts/analyse.py` into `results/published/`. `headline.json` is th
 every figure in this README, the walkthrough and the case study is quoted from.
 
 <!-- RESULTS:START -->
-_Run `python -u scripts/run_ladder.py` then `python -u scripts/analyse.py` to populate this
-section._
+**300 series, 4 rolling origins, 28-day horizon, 8 models across five method families.**
+Every figure below is read from `results/published/ladder.csv` and `headline.json`.
+
+| Model | MASE mean | MASE median | Beats floor | Pinball | Coverage (target 0.80) | Runtime | EUR / series-day |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| N-HiTS | **1.032** | **0.786** | 94.7% | **0.322** | 0.789 | 700 s | **1.192** |
+| Chronos-Bolt, zero-shot | 1.040 | 0.790 | **95.0%** | 0.327 | **0.797** | **37 s** | 1.195 |
+| PatchTST | 1.077 | 0.829 | 93.3% | 0.333 | 0.828 | 700 s | 1.211 |
+| AutoARIMA | 1.215 | 0.942 | 77.0% | 0.341 | 0.862 | 488 s | 1.306 |
+| AutoETS | 1.216 | 0.931 | 77.7% | 0.337 | 0.857 | 488 s | 1.286 |
+| Seasonal naive (this repo) | 1.383 | 1.073 | floor | 0.417 | 0.855 | 13 s | 1.523 |
+| Seasonal naive (statsforecast) | 1.383 | 1.073 | 0.0% | 0.415 | 0.905 | 488 s | 1.582 |
+| LightGBM | 2.327 | 1.190 | 50.7% | 0.405 | 0.576 | 55 s | 1.424 |
+
+### Four findings
+
+**1. A pretrained model that never saw this data came within one percent of the best model
+trained on it, using a nineteenth of the compute.** N-HiTS took the top MASE at 1.032;
+Chronos-Bolt, zero-shot, scored 1.040 in 37 seconds against N-HiTS's 700. Chronos was better
+calibrated (0.797 against 0.789, target 0.80) and beat the floor on marginally more series
+(95.0% against 94.7%). It performs no fitting at all: the compute was paid once, by somebody
+else, during pretraining.
+
+**2. LightGBM came last, and it is the family that won the M5 competition.** MASE 2.327, worse
+than the seasonal naive, with coverage of 0.576 against a nominal 0.80. An 80 percent interval
+that contains the actual 58 percent of the time will under-size every safety buffer computed
+from it.
+
+**3. Whether complexity pays is decided by intermittency, monotonically.** Win rate against the
+floor by quartile of zero-demand share:
+
+| Zero-day share | AutoETS | AutoARIMA | LightGBM | N-HiTS | PatchTST | Chronos |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0.04 to 0.43 (dense) | 93.3% | 89.3% | 93.3% | 96.0% | 94.7% | 97.3% |
+| 0.43 to 0.63 | 88.0% | 85.3% | 74.7% | 97.3% | 97.3% | 96.0% |
+| 0.63 to 0.78 | 69.3% | 69.3% | 28.0% | 96.0% | 93.3% | 97.3% |
+| 0.78 to 0.97 (sparse) | 60.0% | 64.0% | **6.7%** | 89.3% | 88.0% | 89.3% |
+
+LightGBM falls from 93.3% to 6.7%. The classical methods fall from about 90% to about 62%. The
+neural and foundation models hold up. On 11 of the 300 series (3.7%) nothing beat the floor at
+all, and those series have a median gap between sales of **11.8 days against 2.6 elsewhere**.
+
+**4. Ordering at the cost-optimal quantile cost more than ordering at the median, for every
+model.** Not a refutation of the newsvendor identity but a demonstration of its precondition:
+it holds only when the predictive distribution is calibrated, and most of these over-cover. The
+penalty was smallest for the model whose coverage was nearest to nominal. A quantile you cannot
+trust is worse than a point forecast, because somebody will size a buffer from it.
+
+### Cross-check worth noting
+
+The seasonal naive implemented in this repository and `statsforecast`'s own scored **identically
+to four decimal places** on point accuracy (MASE 1.3834, median 1.0728). Their intervals differ,
+because this one uses empirical residual quantiles and the library assumes a distribution. That
+agreement is the check that the floor, which every MASE in the table divides by, is right.
 <!-- RESULTS:END -->
 
 | File | Contents |
