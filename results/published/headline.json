@@ -1,0 +1,35 @@
+{
+  "n_series": 300,
+  "n_models_above_floor": 5,
+  "models": [
+    "AutoARIMA",
+    "AutoETS",
+    "Chronos-Bolt (zero-shot)",
+    "LightGBM",
+    "SeasonalNaive (library)"
+  ],
+  "floor_model": "SeasonalNaive",
+  "best_model": "Chronos-Bolt (zero-shot)",
+  "best_mase_mean": 1.0399846887097532,
+  "floor_mase_mean": 1.3834082486062127,
+  "n_series_where_floor_holds": 12,
+  "pct_series_where_floor_holds": 4.0,
+  "median_zero_share_where_floor_holds": 0.861590694076142,
+  "median_zero_share_where_floor_beaten": 0.6213883996664871,
+  "win_rate_by_model": {
+    "AutoARIMA": 0.77,
+    "AutoETS": 0.7766666666666666,
+    "Chronos-Bolt (zero-shot)": 0.95,
+    "LightGBM": 0.5066666666666667,
+    "SeasonalNaive (library)": 0.0
+  },
+  "protocol": "rolling origin, 4 folds, horizon 28d, step 28d, season 7d, quantiles [0.1, 0.5, 0.9], nominal interval 80% = [q0.1, q0.9], min series length 842",
+  "cost_model": "price EUR 4.50, margin 28%, unit cost EUR 3.24; stockout cost EUR 1.26/unit; overstock cost EUR 1.03/unit (carrying EUR 0.062 over 28d + write-off EUR 0.97 at 30%); critical ratio 0.549",
+  "cost_model_source_note": "Assumed, not measured. M5 ships unit sales with no cost or price data. Price and margin are grocery-retail rules of thumb, the holding rate is the standard 25 percent annual figure, and the write-off fraction is a judgement. The write-off fraction is the assumption the conclusion is most sensitive to: see sensitivity().",
+  "cheapest_model_eur_per_series_day": 1.1952365935722065,
+  "cheapest_model_by_cost": "Chronos-Bolt (zero-shot)",
+  "sensitivity_best_counts": {
+    "AutoETS": 1,
+    "Chronos-Bolt (zero-shot)": 8
+  }
+}

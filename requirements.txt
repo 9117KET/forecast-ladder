@@ -1,0 +1,23 @@
+# Exact versions this project was built and run with, on Python 3.12.6, Windows, CPU only.
+#
+# torch is deliberately NOT pinned to a wheel here: it is listed at the version used, but
+# installing it into a deeply nested path on Windows fails with WinError 206 (path too
+# long) because torch ships dist-info paths hundreds of characters deep. If you hit that,
+# install torch into your base interpreter first and create the venv with
+#   python -m venv .venv --system-site-packages
+# which is how this project was built. See README, "Running it".
+torch==2.2.2
+pandas==2.2.1
+numpy==1.26.4
+statsforecast==2.1.1
+mlforecast==1.1.0
+lightgbm==4.7.0
+neuralforecast==1.7.7
+datasetsforecast==1.0.1
+chronos-forecasting==1.5.3
+transformers==4.57.6
+matplotlib==3.8.4
+pyarrow==25.0.0
+pytest==8.3.5
+utilsforecast==0.2.16
+pytorch-lightning==2.6.5
