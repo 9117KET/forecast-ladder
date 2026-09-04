@@ -402,3 +402,28 @@ def test_colouring_a_table_works_with_matplotlib_uninstallable():
     proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env)
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.strip() == "ok"
+
+
+def test_app_uses_no_api_that_needs_an_undeclared_dependency():
+    """A guard written after the deployed app crashed on exactly this.
+
+    `Styler.background_gradient` imports matplotlib lazily, from inside pandas, at render
+    time. So nothing catches it: the import graph of `app.py` is clean, the tests pass, and
+    the failure appears only when a reader opens the page on a machine without matplotlib.
+    That is precisely what happened on Streamlit Community Cloud.
+
+    The lesson is not "pin matplotlib" but that a lazily imported optional dependency is
+    invisible to every other check in this repository, so it gets its own explicit one.
+    `use_container_width` is here too: it is past its documented removal date in Streamlit,
+    and on 1.59+ it also made the layered forecast chart log SVG errors.
+    """
+    app = (repo_root() / "app.py").read_text(encoding="utf-8")
+    banned = {
+        "background_gradient": "needs matplotlib, which is not a dependency; "
+        "use explorer.mase_colour",
+        "use_container_width": "removed from Streamlit; use width='stretch'",
+        "text_gradient": "needs matplotlib, which is not a dependency",
+        "pyplot": "matplotlib is not a dependency of this app",
+    }
+    found = {name: why for name, why in banned.items() if name in app}
+    assert not found, "app.py uses " + "; ".join(f"{k} ({v})" for k, v in found.items())

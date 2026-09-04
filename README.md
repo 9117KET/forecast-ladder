@@ -6,13 +6,21 @@ but where model complexity stops paying for itself.**
 Five rungs, from a seven-line seasonal naive up to a pretrained transformer forecasting
 zero-shot, all scored under one protocol that was written down before any of them ran.
 
+**[Open the app](https://9117ket-forecast-ladder-app-mcj0pz.streamlit.app/)** ·
 [GitHub](https://github.com/9117KET/forecast-ladder) · Built by
 [Kinlo Ephriam Tangiri](https://www.kinloephraim.com/) · Walkthrough:
 [`docs/WALKTHROUGH.md`](docs/WALKTHROUGH.md)
 
+[![tests](https://github.com/9117KET/forecast-ladder/actions/workflows/tests.yml/badge.svg)](https://github.com/9117KET/forecast-ladder/actions/workflows/tests.yml)
+[![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://9117ket-forecast-ladder-app-mcj0pz.streamlit.app/)
+
 ---
 
 ## Try it
+
+**[9117ket-forecast-ladder-app-mcj0pz.streamlit.app](https://9117ket-forecast-ladder-app-mcj0pz.streamlit.app/)** — no install.
+
+Or locally:
 
 ```bash
 git clone https://github.com/9117KET/forecast-ladder
@@ -256,7 +264,7 @@ python -m pytest tests/ -q
 python scripts/check_reproducible.py   # results/published/ still matches results/raw/
 ```
 
-**144 tests.** They cover the metrics against hand-computed values (including the asymmetry of
+**145 tests.** They cover the metrics against hand-computed values (including the asymmetry of
 pinball loss in both directions), the fold arithmetic and three separate leakage checks, the
 seasonal naive's weekday alignment and interval widening, the normalisation of each library's
 output, and a brute-force verification that newsvendor cost really is minimised at the
@@ -265,7 +273,7 @@ critical-ratio quantile.
 Expected numbers in the test suite were worked out on paper, not captured from a run. That
 distinction is the only thing that makes a test of a metric worth having.
 
-The 32 in `tests/test_explorer.py` are a different kind and are there because of the app.
+The 33 in `tests/test_explorer.py` are a different kind and are there because of the app.
 They assert that the committed artefacts still describe one coherent run — every forecast day
 has an actual, the published tables cover exactly the models in `results/raw/`, quantiles do
 not cross — and, the one worth having, that re-running the floor live under the frozen
