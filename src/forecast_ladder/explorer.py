@@ -45,6 +45,7 @@ __all__ = [
     "per_series_scores",
     "run_floor_backtest",
     "model_display_order",
+    "mase_colour",
 ]
 
 
@@ -161,6 +162,38 @@ def model_display_order(models) -> list[str]:
 def available_models() -> list[str]:
     """Model names present in the raw forecasts, in published-MASE order."""
     return model_display_order(load_raw_forecasts()["model"].unique())
+
+
+def mase_colour(value: float, span: float = 1.0) -> str:
+    """A CSS background for one MASE cell, diverging around the floor at 1.0.
+
+    Written out rather than reached for via `Styler.background_gradient`, for two reasons.
+
+    The presentational one: `background_gradient` needs matplotlib, and matplotlib was the
+    only reason this project's app dependencies included it at all. Dropping it takes
+    matplotlib, kiwisolver, contourpy and fonttools out of the deployment for the sake of
+    one coloured table.
+
+    The one that actually matters: `background_gradient` normalises over the values present
+    in the table, so the greenest cell is whatever happened to be best in that particular
+    selection, and the same MASE gets a different colour depending on what it is sitting
+    next to. MASE has a fixed meaning at 1.0 — as good as a seasonal naive was in sample —
+    so the scale is anchored there instead. Green is below the floor, red is above it, and
+    a cell's colour means the same thing on every series in the app.
+
+    `span` is the distance from 1.0 at which the colour saturates.
+    """
+    if value is None or not np.isfinite(value):
+        return ""
+    delta = (float(value) - 1.0) / float(span)
+    weight = min(abs(delta), 1.0)
+    if delta <= 0:  # better than the floor
+        r, g, b = 26, 152, 80
+    else:  # worse than the floor
+        r, g, b = 215, 48, 39
+    # Blend toward white so the text stays readable at every intensity.
+    alpha = 0.15 + 0.65 * weight
+    return f"background-color: rgba({r}, {g}, {b}, {alpha:.3f})"
 
 
 def _rung_seconds() -> dict[str, float]:

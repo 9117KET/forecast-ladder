@@ -222,7 +222,7 @@ with tab_ladder:
             tooltip=["model", "stat", alt.Tooltip("mase:Q", format=".3f")],
         )
         .properties(height=320),
-        use_container_width=True,
+        width="stretch",
     )
 
     left, right = st.columns(2)
@@ -244,7 +244,7 @@ with tab_ladder:
                 .mark_rule(color="#e45756", strokeDash=[4, 4], size=2)
                 .encode(x="t:Q")
             ).properties(height=300),
-            use_container_width=True,
+            width="stretch",
         )
     with right:
         st.subheader("What the compute bought")
@@ -272,7 +272,7 @@ with tab_ladder:
                     ],
                 )
                 .properties(height=300),
-                use_container_width=True,
+                width="stretch",
             )
         else:
             st.info("No timings recorded: results/raw/timings.json is absent.")
@@ -297,7 +297,7 @@ with tab_ladder:
         ]
         if c in show.columns
     ]
-    st.dataframe(show[cols], use_container_width=True, hide_index=True)
+    st.dataframe(show[cols], width="stretch", hide_index=True)
     st.caption(
         "`mase_dropped` counts series-folds where the training window had a zero "
         "seasonal-naive scale, so MASE is undefined and the row was excluded rather than "
@@ -349,7 +349,7 @@ with tab_pays:
             ],
         )
         .properties(height=40 * win["model"].nunique()),
-        use_container_width=True,
+        width="stretch",
     )
 
     st.altair_chart(
@@ -362,7 +362,7 @@ with tab_pays:
             tooltip=["model", "bucket", alt.Tooltip("win_rate:Q", format=".1%")],
         )
         .properties(height=320),
-        use_container_width=True,
+        width="stretch",
     )
 
     st.subheader("The series where nothing beat the floor")
@@ -380,7 +380,7 @@ with tab_pays:
                 "median_where_floor_beaten": "median where floor beaten",
             }
         ),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -404,7 +404,7 @@ with tab_pays:
             ],
         )
         .properties(height=380),
-        use_container_width=True,
+        width="stretch",
     )
     st.caption(
         "Every sampled series. Red is a series where the correct engineering decision is "
@@ -533,9 +533,17 @@ with tab_series:
                 ],
             )
         )
+        # Known upstream: Streamlit 1.59+ renders this layered chart correctly but logs
+        # two SVG warnings ("attribute transform: Expected number", Number.MAX_VALUE) while
+        # sizing it. It appears once a layer chart has three or more layers, is independent
+        # of the mark types and of the Altair version, and does not reproduce when the same
+        # spec is rendered outside Streamlit. Bisecting the layers and pinning the versions
+        # located it; explicit widths, container widths and swapping the area mark for line
+        # marks all left it unchanged, so it is not being worked around here. Streamlit 1.45
+        # does not show it.
         st.altair_chart(
             alt.layer(*layers).resolve_scale(y="shared").properties(height=400),
-            use_container_width=True,
+            width="stretch",
         )
         st.caption(
             "Black is the actual. The dashed line is the cutoff: everything to its left is "
@@ -555,9 +563,11 @@ with tab_series:
     ).round(3)
     pivot.columns = [pd.Timestamp(c).date().isoformat() for c in pivot.columns]
     pivot["mean"] = pivot.mean(axis=1).round(3)
-    st.dataframe(
-        pivot.style.background_gradient(cmap="RdYlGn_r", axis=None),
-        use_container_width=True,
+    st.dataframe(pivot.style.map(ex.mase_colour), width="stretch")
+    st.caption(
+        "Green is below the seasonal naive floor, red is above it. The scale is anchored "
+        "on 1.0 rather than on the range of this table, so a colour means the same thing "
+        "on every series."
     )
 
 
@@ -626,7 +636,7 @@ with tab_run:
                     "or all-zero training window) and were excluded, not averaged in as "
                     "zero."
                 )
-            st.dataframe(summary.round(4), use_container_width=True, hide_index=True)
+            st.dataframe(summary.round(4), width="stretch", hide_index=True)
 
             st.caption(
                 "MASE across the selected series, one point per series-fold. The floor "
@@ -642,7 +652,7 @@ with tab_run:
                     y=alt.Y("count():Q", title="series-folds"),
                 )
                 .properties(height=260),
-                use_container_width=True,
+                width="stretch",
             )
             st.download_button(
                 "Download these per-fold scores (CSV)",
@@ -721,7 +731,7 @@ with tab_money:
             ],
         )
         .properties(height=320),
-        use_container_width=True,
+        width="stretch",
     )
 
     st.dataframe(
@@ -731,7 +741,7 @@ with tab_money:
                 "eur_per_series_day_at_median", "distribution_value_per_series_day",
             ]
         ].round(4),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
     st.caption(
@@ -749,7 +759,7 @@ with tab_money:
         wins = sens[sens["is_best"]].groupby("model").size().rename("times cheapest")
         g1, g2 = st.columns([1, 2])
         with g1:
-            st.dataframe(wins.reset_index(), use_container_width=True, hide_index=True)
+            st.dataframe(wins.reset_index(), width="stretch", hide_index=True)
         with g2:
             st.altair_chart(
                 alt.Chart(sens)
@@ -768,7 +778,7 @@ with tab_money:
                     ],
                 )
                 .properties(width=110, height=110),
-                use_container_width=True,
+                width="stretch",
             )
         st.caption(
             "Nine cost worlds, from a 10 percent write-off at a 15 percent margin to a 60 "

@@ -7,11 +7,33 @@
 # app deploy in under a minute instead of building a two-gigabyte image to display a CSV.
 # To re-run the rungs themselves, install requirements-rungs.txt as well.
 #
-# Versions are the ones this project was built and run with, on Python 3.12.6.
-pandas==2.2.1
-numpy==1.26.4
-pyarrow==25.0.0
-matplotlib==3.8.4
-streamlit==1.45.0
-altair==5.5.0
-pytest==8.3.5
+# No matplotlib either. It was here only so pandas' Styler.background_gradient could
+# colour one table; explorer.mase_colour does that in six lines and anchors the scale
+# on 1.0, which is more correct anyway. That drops matplotlib, kiwisolver, contourpy
+# and fonttools from the deployment.
+#
+# **Why the version markers.** This project was built and run on Python 3.12.6 and those
+# are the pins below. But a hosted runner picks its own interpreter: Streamlit Community
+# Cloud provisioned Python 3.14, on which numpy 1.26.4 has no wheel at all and pip falls
+# back to compiling it from source, which hangs and then fails. Rather than pin the whole
+# project to whatever a host happens to offer, the exact tested versions apply up to 3.12
+# and the oldest versions with 3.13+ wheels apply above it.
+#
+# The two stacks are not bit-identical and that is expected: summing 33,600 costs in a
+# different order moves a total by one unit in the last place. Every metric is unchanged
+# and so is every ranking. scripts/check_reproducible.py compares at 1e-9 relative
+# tolerance for exactly this reason, and both stacks pass it.
+
+numpy==1.26.4; python_version < "3.13"
+numpy>=2.3.2; python_version >= "3.13"
+
+pandas==2.2.1; python_version < "3.13"
+pandas>=2.3.3; python_version >= "3.13"
+
+pyarrow==25.0.0; python_version < "3.13"
+pyarrow>=22.0.0; python_version >= "3.13"
+
+# Pure Python, so one specifier covers every interpreter.
+streamlit>=1.45.0
+altair>=5.5.0
+pytest>=8.3.5

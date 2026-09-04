@@ -25,7 +25,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.12"]
+        # 3.12 is what the project was built on. 3.13 and 3.14 are here because a host
+        # picks its own interpreter: Streamlit Community Cloud provisioned 3.14, on which
+        # the original pins had no wheels at all. requirements.txt carries version markers
+        # for that, and this matrix is what keeps them honest.
+        python-version: ["3.10", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v5
 
@@ -41,11 +45,12 @@ jobs:
       - name: Test
         run: python -m pytest tests/ -q
 
+      # Not `git diff --exit-code`: the tables are not reproducible byte-for-byte across
+      # numpy versions, because summing 33,600 costs in a different order moves a total by
+      # one unit in the last place. This compares numerically at 1e-9 relative tolerance,
+      # which no real change can hide under. See the script's docstring.
       - name: The published tables must still be what the committed forecasts produce
-        run: |
-          python -u scripts/analyse.py
-          git diff --exit-code --stat results/published/ \
-            || (echo "::error::results/published/ is not reproducible from results/raw/. Re-run scripts/analyse.py and commit the result." && exit 1)
+        run: python -u scripts/check_reproducible.py
 
       - name: The app must at least import cleanly
         run: python -c "import forecast_ladder.explorer as e; e.load_raw_forecasts(); print('ok')"

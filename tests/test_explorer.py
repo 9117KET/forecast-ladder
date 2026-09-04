@@ -13,6 +13,8 @@ discovered by a reader and a broken test is discovered by a commit.
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -27,6 +29,7 @@ from forecast_ladder.explorer import (
     load_raw_forecasts,
     load_sample_series,
     load_timings,
+    mase_colour,
     model_display_order,
     per_series_scores,
     repo_root,
@@ -312,3 +315,90 @@ def test_live_floor_refuses_an_empty_selection():
 def test_live_floor_refuses_series_outside_the_sample():
     with pytest.raises(ValueError, match="none of the requested series"):
         run_floor_backtest(["NOT_A_SERIES"])
+
+
+# --------------------------------------------------------------------------------------
+# Table colouring
+# --------------------------------------------------------------------------------------
+
+
+def test_mase_colour_is_anchored_on_the_floor_not_on_the_data():
+    """1.0 is the seasonal naive. It must read as neutral wherever it appears."""
+    at_floor = mase_colour(1.0)
+    assert "26, 152, 80" in at_floor or "215, 48, 39" in at_floor
+    # Faintest possible tint at the anchor, so a cell at the floor never looks like a win.
+    assert "0.150" in at_floor
+
+
+def test_mase_colour_is_green_below_the_floor_and_red_above_it():
+    assert "26, 152, 80" in mase_colour(0.5)
+    assert "215, 48, 39" in mase_colour(1.5)
+
+
+def test_mase_colour_deepens_with_distance_from_the_floor():
+    def alpha(css):
+        return float(css.rsplit(",", 1)[1].strip(" )"))
+
+    assert alpha(mase_colour(0.9)) < alpha(mase_colour(0.6)) < alpha(mase_colour(0.1))
+    assert alpha(mase_colour(1.1)) < alpha(mase_colour(1.4)) < alpha(mase_colour(1.9))
+
+
+def test_mase_colour_saturates_rather_than_running_past_full_opacity():
+    """Intermittent series produce MASE in the tens. The scale must not overflow."""
+    for extreme in (5.0, 50.0, 1e6):
+        css = mase_colour(extreme)
+        assert float(css.rsplit(",", 1)[1].strip(" )")) == pytest.approx(0.80)
+
+
+def test_mase_colour_returns_no_style_for_undefined_values():
+    """MASE is NaN where the training window was flat. A NaN must not be coloured as good."""
+    for missing in (None, float("nan"), np.nan):
+        assert mase_colour(missing) == ""
+
+
+def test_colouring_a_table_works_with_matplotlib_uninstallable():
+    """The reason `mase_colour` exists: `Styler.background_gradient` requires matplotlib,
+    and that was this app's only use for it. Dropping it took matplotlib, kiwisolver,
+    contourpy and fonttools out of the deployment — and it was matplotlib's transitive
+    kiwisolver that had no wheel on the Python the host provisioned.
+
+    So the property under test is that colouring a table still works when matplotlib
+    cannot be imported at all. It runs in a subprocess with an import hook that raises on
+    matplotlib, rather than asserting matplotlib is absent from `sys.modules`: pandas
+    imports it opportunistically when it happens to be installed, so that assertion would
+    pass or fail on what else is in the developer's virtualenv rather than on this code.
+    """
+    import subprocess
+    import sys
+    import textwrap
+
+    code = textwrap.dedent(
+        """
+        import sys
+
+        class Blocked:
+            def find_module(self, name, path=None):
+                return self.find_spec(name, path)
+
+            def find_spec(self, name, path=None, target=None):
+                if name == "matplotlib" or name.startswith("matplotlib."):
+                    raise ImportError("matplotlib is blocked for this test")
+                return None
+
+        sys.meta_path.insert(0, Blocked())
+
+        import pandas as pd
+        from forecast_ladder.explorer import mase_colour
+
+        df = pd.DataFrame({"a": [0.4, 1.0, 2.6], "b": [float("nan"), 0.95, 12.0]})
+        html = df.style.map(mase_colour).to_html()
+        assert "background-color" in html, html
+        assert "rgba(26, 152, 80" in html, "expected a green cell below the floor"
+        assert "rgba(215, 48, 39" in html, "expected a red cell above the floor"
+        print("ok")
+        """
+    )
+    env = {**os.environ, "PYTHONPATH": str(repo_root() / "src")}
+    proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip() == "ok"

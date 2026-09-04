@@ -23,8 +23,8 @@ streamlit run app.py
 
 Three commands and no download: the sampled panel and every rung's forecasts are committed,
 so a fresh clone has everything the app reads. There is no forecasting library in
-`requirements.txt` at all, because nothing here re-fits a model — see
-[Running it](#running-it).
+`requirements.txt` at all, and no plotting library either, because nothing here re-fits a
+model — see [Running it](#running-it). Tested on Python 3.10 through 3.14.
 
 The app is the results as something you can interrogate rather than only read:
 
@@ -253,9 +253,10 @@ is expensive and the analysis is not.
 
 ```bash
 python -m pytest tests/ -q
+python scripts/check_reproducible.py   # results/published/ still matches results/raw/
 ```
 
-**138 tests.** They cover the metrics against hand-computed values (including the asymmetry of
+**144 tests.** They cover the metrics against hand-computed values (including the asymmetry of
 pinball loss in both directions), the fold arithmetic and three separate leakage checks, the
 seasonal naive's weekday alignment and interval widening, the normalisation of each library's
 output, and a brute-force verification that newsvendor cost really is minimised at the
@@ -264,7 +265,7 @@ critical-ratio quantile.
 Expected numbers in the test suite were worked out on paper, not captured from a run. That
 distinction is the only thing that makes a test of a metric worth having.
 
-The 26 in `tests/test_explorer.py` are a different kind and are there because of the app.
+The 32 in `tests/test_explorer.py` are a different kind and are there because of the app.
 They assert that the committed artefacts still describe one coherent run — every forecast day
 has an actual, the published tables cover exactly the models in `results/raw/`, quantiles do
 not cross — and, the one worth having, that re-running the floor live under the frozen
@@ -294,6 +295,7 @@ scripts/
   run_ladder.py     run the rungs, write raw forecasts
   analyse.py        score, analyse, cost, publish
   time_rung.py      size one rung before the full run
+  check_reproducible.py  published tables still match the committed forecasts
 data/sample_panel.parquet   the 300 sampled series, committed (300 KB)
 results/raw/                every rung's forecasts, committed (4.5 MB)
 results/published/          the summary tables every write-up quotes
