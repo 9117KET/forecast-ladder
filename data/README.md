@@ -1,7 +1,8 @@
 # Data
 
-**Nothing in this directory is committed.** `scripts/download_data.py` fetches it. The
-`.gitignore` allows only this file and `.gitkeep`.
+**The raw M5 download is not committed.** `scripts/download_data.py` fetches it, and it is
+roughly 500 MB. One derived file is committed: `sample_panel.parquet`, the 300 sampled series
+trimmed to the most recent 842 days, about 300 KB. See "What is committed and why" below.
 
 ## Source
 
@@ -11,8 +12,7 @@ from 10 Walmart stores in California, Texas and Wisconsin, 2011-01-29 to 2016-06
 Fetched through [`datasetsforecast`](https://github.com/Nixtla/datasetsforecast) (Nixtla),
 which mirrors the competition files and needs no credentials. The M5 data was released for the
 2020 competition run by the M Open Forecasting Center at the University of Nicosia and is
-widely redistributed for research and benchmarking; this project redistributes none of it and
-fetches it at run time.
+widely redistributed for research and benchmarking.
 
 The loader trims leading zeros before an item was first stocked, so series start on different
 dates and all end on the same date.
@@ -41,11 +41,23 @@ dataset, is the first item on the "what next" list.
 | Path | What it is |
 | --- | --- |
 | `m5/` | The `datasetsforecast` cache, roughly 500 MB after decompression |
-| `sample_panel.parquet` | The 300 sampled series, trimmed to the most recent 842 days, a few MB |
+| `sample_panel.parquet` | The 300 sampled series, trimmed to the most recent 842 days, 300 KB. Already in the repository; `scripts/prepare_panel.py` rewrites it |
 
-## The sample is committed, the data is not
+## What is committed and why
 
-`results/published/sample_series.csv` records which 300 series were selected and their
-descriptors, and `results/published/series_features.csv` records the descriptors for all
-26,834 eligible series. That is enough for anyone to verify the selection rule was applied
-rather than described, without this repository redistributing the underlying data.
+| Committed | Size | Why |
+| --- | --- | --- |
+| `sample_panel.parquet` | 300 KB | The 300 sampled series, trimmed to 842 days. Without it a fresh clone cannot run the app or the tests without a 500 MB download |
+| `results/raw/*.parquet` | 4.5 MB | Every rung's forecasts. Without them `scripts/analyse.py` is not reproducible without two hours of CPU |
+| `results/published/sample_series.csv` | 40 KB | Which 300 series were selected, and their descriptors |
+| `results/published/series_features.csv` | 3 MB | Descriptors for all 26,834 eligible series, so the selection rule can be verified rather than taken on trust |
+
+Not committed: the M5 download itself, under `m5/`.
+
+**On redistributing the sample.** `sample_panel.parquet` is 300 of M5's 30,490 series, about
+one percent, and it is derived rather than the competition files. The M5 data was released by
+the M Open Forecasting Center for research and benchmarking and is mirrored in that spirit by
+`datasetsforecast` and by a long list of published forecasting repositories. Committing a one
+percent slice is the same use. If you are reusing it, cite the M5 competition, not this
+repository. The full data is a `scripts/download_data.py` away and no part of this project
+depends on the committed slice being treated as a source.

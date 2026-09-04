@@ -34,10 +34,12 @@ moves when the assumptions do.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+
+from .protocol import PROTOCOL, Protocol
 
 __all__ = [
     "CostModel",
@@ -210,6 +212,7 @@ def cost_table(
     panel: pd.DataFrame,
     costs: CostModel = DEFAULT_COSTS,
     use_critical_ratio: bool = True,
+    protocol: Protocol = PROTOCOL,
 ) -> pd.DataFrame:
     """Newsvendor cost per model, summed over the sample and reported per series-day.
 
@@ -223,6 +226,10 @@ def cost_table(
 
     The gap between those two columns is the euro value of having a calibrated
     distribution at all, separately from the value of having a more accurate point forecast.
+
+    `protocol` supplies the quantile levels the `q10` and `q90` columns actually hold, so
+    the interpolation to the critical ratio uses the levels that were forecast rather than
+    the ones the column names suggest.
     """
     panel = panel.copy()
     panel["ds"] = pd.to_datetime(panel["ds"])
@@ -236,14 +243,20 @@ def cost_table(
 
     cr = costs.critical_ratio
     h_cost, s_cost = costs.overstock_cost, costs.stockout_cost
+    # The q10 and q90 columns are named for the default protocol but hold whatever levels
+    # the protocol's nominal interval brackets. Reading the levels back from the protocol
+    # rather than hardcoding 0.1 and 0.9 is what keeps `order_quantity` interpolating
+    # between the levels that were actually forecast: widening the nominal interval to 90
+    # percent would otherwise have the 0.05 forecast interpolated as if it were the 0.10.
+    q_lo, q_hi = protocol.interval_quantiles
 
     rows = []
     for model, g in f.groupby("model", observed=True):
         y = g["y"].to_numpy(dtype=float)
         qs = {
-            0.1: g["q10"].to_numpy(dtype=float),
+            q_lo: g["q10"].to_numpy(dtype=float),
             0.5: g["q50"].to_numpy(dtype=float),
-            0.9: g["q90"].to_numpy(dtype=float),
+            q_hi: g["q90"].to_numpy(dtype=float),
         }
         order_cr = order_quantity(qs, cr) if use_critical_ratio else qs[0.5]
         rows.append(
@@ -269,6 +282,7 @@ def sensitivity(
     panel: pd.DataFrame,
     write_off_fractions: tuple[float, ...] = (0.10, 0.30, 0.60),
     margins: tuple[float, ...] = (0.15, 0.28, 0.40),
+    protocol: Protocol = PROTOCOL,
 ) -> pd.DataFrame:
     """Re-cost the whole comparison across a grid of the two assumptions that drive it.
 
@@ -285,7 +299,7 @@ def sensitivity(
     for wof in write_off_fractions:
         for margin in margins:
             costs = CostModel(gross_margin=margin, write_off_fraction=wof)
-            t = cost_table(forecasts, panel, costs)
+            t = cost_table(forecasts, panel, costs, protocol=protocol)
             best = t.iloc[0]
             for _, r in t.iterrows():
                 rows.append(

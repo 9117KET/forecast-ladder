@@ -1,23 +1,17 @@
-# Exact versions this project was built and run with, on Python 3.12.6, Windows, CPU only.
+# Everything needed to read this project's results: the Streamlit app, the full test
+# suite, and scripts/analyse.py, which re-derives every published table from the committed
+# forecasts in results/raw/.
 #
-# torch is deliberately NOT pinned to a wheel here: it is listed at the version used, but
-# installing it into a deeply nested path on Windows fails with WinError 206 (path too
-# long) because torch ships dist-info paths hundreds of characters deep. If you hit that,
-# install torch into your base interpreter first and create the venv with
-#   python -m venv .venv --system-site-packages
-# which is how this project was built. See README, "Running it".
-torch==2.2.2
+# Deliberately no torch, no LightGBM, no forecasting libraries. Those are only needed to
+# *produce* forecasts, and the forecasts are committed. Keeping them out is what lets the
+# app deploy in under a minute instead of building a two-gigabyte image to display a CSV.
+# To re-run the rungs themselves, install requirements-rungs.txt as well.
+#
+# Versions are the ones this project was built and run with, on Python 3.12.6.
 pandas==2.2.1
 numpy==1.26.4
-statsforecast==2.1.1
-mlforecast==1.1.0
-lightgbm==4.7.0
-neuralforecast==1.7.7
-datasetsforecast==1.0.1
-chronos-forecasting==1.5.3
-transformers==4.57.6
-matplotlib==3.8.4
 pyarrow==25.0.0
+matplotlib==3.8.4
+streamlit==1.45.0
+altair==5.5.0
 pytest==8.3.5
-utilsforecast==0.2.16
-pytorch-lightning==2.6.5

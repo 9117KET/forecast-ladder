@@ -1,0 +1,50 @@
+{
+  "naive": {
+    "seconds": 13.44,
+    "n_series": 300,
+    "models": [
+      "SeasonalNaive"
+    ],
+    "rows": 33600,
+    "notes": "This project's own implementation, tested in tests/test_baselines.py. Intervals from empirical residual quantiles at the matching seasonal lag."
+  },
+  "foundation": {
+    "seconds": 36.9,
+    "n_series": 300,
+    "models": [
+      "Chronos-Bolt (zero-shot)"
+    ],
+    "rows": 33600,
+    "notes": "amazon/chronos-bolt-small, zero-shot, no training on this data; context 512d; quantiles emitted directly by the model."
+  },
+  "classical": {
+    "seconds": 487.86,
+    "n_series": 300,
+    "models": [
+      "AutoARIMA",
+      "AutoETS",
+      "SeasonalNaive (library)"
+    ],
+    "rows": 100800,
+    "notes": "AutoETS and AutoARIMA select their own orders per series; intervals are the library's parametric ones."
+  },
+  "gbm": {
+    "seconds": 54.81,
+    "n_series": 300,
+    "models": [
+      "LightGBM"
+    ],
+    "rows": 33600,
+    "notes": "One global model across all series; lags 1/7/14/21/28 plus calendar features; conformal prediction intervals."
+  },
+  "neural": {
+    "seconds": 699.62,
+    "n_series": 300,
+    "models": [
+      "NHITS",
+      "PatchTST"
+    ],
+    "rows": 67200,
+    "notes": "Global models, input window 112d, multi-quantile loss, fixed budget of 400 steps on CPU, no early stopping."
+  }
+}

@@ -12,6 +12,36 @@ zero-shot, all scored under one protocol that was written down before any of the
 
 ---
 
+## Try it
+
+```bash
+git clone https://github.com/9117KET/forecast-ladder
+cd forecast-ladder
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Three commands and no download: the sampled panel and every rung's forecasts are committed,
+so a fresh clone has everything the app reads. There is no forecasting library in
+`requirements.txt` at all, because nothing here re-fits a model — see
+[Running it](#running-it).
+
+The app is the results as something you can interrogate rather than only read:
+
+| Tab | What you can do with it |
+| --- | --- |
+| **The ladder** | Accuracy, calibration and the compute each rung cost, in one place |
+| **Where complexity pays** | Win rate against the floor by intermittency quartile, and the 11 series nothing beat |
+| **One series at a time** | Every model's actual forecast against the actual demand, on any fold |
+| **Run the floor yourself** | Move the horizon, the folds or the season and the seasonal naive is re-run and re-scored live, through the same `runner.score` every published number came from |
+| **The business case** | Move the cost assumptions and watch all eight models get re-costed, and find out for yourself whether the ranking survives |
+
+Two of those recompute; the rest read the committed run. Which is which is stated on the
+page, because a demo that quietly recomputes something is worse than one that does not
+recompute at all.
+
+---
+
 ## What this is
 
 A forecasting team can get another repository that fits a model and reports an accuracy number
@@ -50,8 +80,10 @@ The ladder:
   would need to change to add it.
 - **Not measured economics.** M5 ships no prices or costs. Every euro figure rests on stated
   assumptions, and the sensitivity grid exists because of that.
-- **Not deployed.** There is nothing to click. This is a batch comparison; the deliverable is
-  the finding and the code that produced it.
+- **Not a forecasting service.** The app explores a comparison that has already been run. It
+  will not fit AutoARIMA or a transformer on your data, and the only rung it recomputes is
+  the seasonal naive floor. Serving a fitted model behind an API is on the "what next" list
+  precisely because it is a different project.
 
 ---
 
@@ -158,16 +190,36 @@ agreement is the check that the floor, which every MASE in the table divides by,
 
 Python 3.10 or newer. Built and run on 3.12.6, Windows, CPU only.
 
-```bash
-git clone https://github.com/9117KET/forecast-ladder
-cd forecast-ladder
+**Two dependency sets, because they are two different jobs.** `requirements.txt` reads the
+results: the app, the tests and `scripts/analyse.py`, which re-derives every published table
+from the committed forecasts. `requirements-rungs.txt` adds torch, LightGBM and the
+forecasting libraries, and is only needed to *produce* forecasts. Splitting them is what
+lets the app deploy in under a minute rather than building a two-gigabyte image to display
+a CSV.
 
+### Reading the results
+
+```bash
+pip install -r requirements.txt
+
+streamlit run app.py            # the interactive comparison
+python -m pytest tests/ -q      # the test suite
+python -u scripts/analyse.py    # re-derive every published table from results/raw/
+```
+
+Nothing above downloads anything. `data/sample_panel.parquet` (300 KB) and
+`results/raw/*.parquet` (4.5 MB) are committed, so the analysis is reproducible from a clean
+clone without the 500 MB fetch or the two hours of CPU that produced the forecasts.
+
+### Reproducing the run
+
+```bash
 # torch first, into the base interpreter, then a venv that reuses it.
 # Installing torch into a deeply nested .venv path on Windows fails with WinError 206
 # (path too long), because torch ships dist-info paths hundreds of characters deep.
 pip install torch==2.2.2
 python -m venv .venv --system-site-packages
-.venv/Scripts/python -m pip install -r requirements.txt   # Linux/macOS: .venv/bin/python
+.venv/Scripts/python -m pip install -r requirements-rungs.txt   # Linux/macOS: .venv/bin/python
 
 # 1. fetch M5 and freeze the 300-series sample (~500 MB download, once)
 .venv/Scripts/python -u scripts/download_data.py
@@ -200,10 +252,10 @@ is expensive and the analysis is not.
 ### Tests
 
 ```bash
-.venv/Scripts/python -m pytest tests/ -q
+python -m pytest tests/ -q
 ```
 
-**101 tests.** They cover the metrics against hand-computed values (including the asymmetry of
+**136 tests.** They cover the metrics against hand-computed values (including the asymmetry of
 pinball loss in both directions), the fold arithmetic and three separate leakage checks, the
 seasonal naive's weekday alignment and interval widening, the normalisation of each library's
 output, and a brute-force verification that newsvendor cost really is minimised at the
@@ -212,11 +264,20 @@ critical-ratio quantile.
 Expected numbers in the test suite were worked out on paper, not captured from a run. That
 distinction is the only thing that makes a test of a metric worth having.
 
+The 24 in `tests/test_explorer.py` are a different kind and are there because of the app.
+They assert that the committed artefacts still describe one coherent run — every forecast day
+has an actual, the published tables cover exactly the models in `results/raw/`, quantiles do
+not cross — and, the one worth having, that re-running the floor live under the frozen
+protocol reproduces the published floor to within 1e-9. Without that last check the app would
+be a second, quietly different implementation of the baseline every MASE in the results
+divides by, which is the exact failure this repository is built to avoid.
+
 ---
 
 ## Layout
 
 ```
+app.py            the Streamlit app: layout only, no logic
 src/forecast_ladder/
   protocol.py     the evaluation rules, frozen, written before any model
   metrics.py      MASE, pinball loss, coverage, implemented not imported
@@ -226,14 +287,22 @@ src/forecast_ladder/
   data.py         M5 loading, series descriptors, the stratified sample
   economics.py    newsvendor cost and the critical-ratio identity
   analysis.py     where the complexity pays and where the floor holds
+  explorer.py     everything the app does, as testable functions
 scripts/
   download_data.py  fetch M5, freeze the sample
   prepare_panel.py  cache the sampled panel
   run_ladder.py     run the rungs, write raw forecasts
   analyse.py        score, analyse, cost, publish
   time_rung.py      size one rung before the full run
+data/sample_panel.parquet   the 300 sampled series, committed (300 KB)
+results/raw/                every rung's forecasts, committed (4.5 MB)
+results/published/          the summary tables every write-up quotes
 docs/WALKTHROUGH.md  how to defend every choice in here
 ```
+
+`app.py` holds no logic on purpose. A Streamlit script cannot be imported without starting a
+server, so anything living inside one is untestable by construction; every decision the app
+makes is a plain function in `explorer.py` with a test against it.
 
 ---
 

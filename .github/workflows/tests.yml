@@ -1,0 +1,53 @@
+# Runs the test suite on every push and pull request.
+#
+# This is cheap only because the forecasting stack is not installed: requirements.txt has
+# no torch and no forecasting libraries, because the forecasts are committed and nothing
+# in the tests re-fits a model. The run takes well under a minute.
+#
+# What it is actually guarding is not just the metrics, which are pure functions and were
+# never going to rot. It is tests/test_explorer.py, which asserts that the committed
+# artefacts still describe one coherent run: every forecast day has an actual, the
+# published tables cover exactly the models in results/raw/, and re-running the seasonal
+# naive floor live reproduces the published floor to within 1e-9. Those are the things a
+# careless commit can quietly break, and they are what the app depends on being true.
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Test
+        run: python -m pytest tests/ -q
+
+      - name: The published tables must still be what the committed forecasts produce
+        run: |
+          python -u scripts/analyse.py
+          git diff --exit-code --stat results/published/ \
+            || (echo "::error::results/published/ is not reproducible from results/raw/. Re-run scripts/analyse.py and commit the result." && exit 1)
+
+      - name: The app must at least import cleanly
+        run: python -c "import forecast_ladder.explorer as e; e.load_raw_forecasts(); print('ok')"
+        env:
+          PYTHONPATH: src

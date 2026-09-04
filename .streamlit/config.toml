@@ -1,0 +1,18 @@
+# Streamlit configuration for the deployed app.
+
+[theme]
+base = "light"
+primaryColor = "#e45756"          # the same red the charts use for the cutoff and the floor
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f2f4f7"
+textColor = "#1f2933"
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false
+
+[client]
+# Show errors in the page rather than only in the server log. This app is a portfolio
+# artefact: if something breaks for a reader, it should be visible and reportable, not a
+# silent blank panel.
+showErrorDetails = true
