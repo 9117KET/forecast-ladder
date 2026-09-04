@@ -163,6 +163,20 @@ def available_models() -> list[str]:
     return model_display_order(load_raw_forecasts()["model"].unique())
 
 
+def _rung_seconds() -> dict[str, float]:
+    """Wall-clock seconds per model, from the rung that produced it.
+
+    A rung that fitted several models reports one cost for all of them, because the fits
+    are not separable in wall-clock terms. That is coarse but it is the same number the
+    ladder table reports, and it is only used here to order models that already tie.
+    """
+    return {
+        model: float(rung["seconds"])
+        for rung in load_timings().values()
+        for model in rung.get("models", [])
+    }
+
+
 def series_catalogue() -> pd.DataFrame:
     """One row per sampled series: descriptors, plus which model actually won it.
 
@@ -170,6 +184,20 @@ def series_catalogue() -> pd.DataFrame:
     `floor_holds` marks the series no rung beat the seasonal naive on. Those two columns
     are the reason to browse series at all: the ladder table says the neural rungs win on
     average, and this says on which items that average is made and on which it is not.
+
+    **Ties go to the cheaper rung, and they are not hypothetical.** 11 of the 300 series
+    have two or more models exactly tied at the lowest MASE. Ten of those are this
+    project's seasonal naive against `statsforecast`'s, which score identically to the last
+    bit and whose agreement is the cross-check that the floor is right. On the eleventh,
+    PatchTST also lands exactly on the naive's score.
+
+    Picking whichever model a groupby happened to emit first would make `best_model` depend
+    on row order. Picking alphabetically would be deterministic but would credit PatchTST,
+    at 700 seconds, on a series where a seven-line baseline did exactly as well — which
+    inverts the argument this whole repository is making. So ties are broken by the rung's
+    wall-clock cost, then by name: if two methods are indistinguishable on accuracy, the
+    one that is cheaper to run is the one to name. Where no timing is recorded the model
+    sorts last, because an unknown cost is not evidence of a low one.
     """
     features = load_sample_series().copy()
     per_fold = load_published("per_fold")
@@ -177,7 +205,9 @@ def series_catalogue() -> pd.DataFrame:
     per_series = (
         per_fold.groupby(["unique_id", "model"], observed=True)["mase"].mean().reset_index()
     )
-    ranked = per_series.dropna(subset=["mase"]).sort_values("mase")
+    ranked = per_series.dropna(subset=["mase"]).copy()
+    ranked["_cost"] = ranked["model"].map(_rung_seconds()).fillna(np.inf)
+    ranked = ranked.sort_values(["mase", "_cost", "model"])
     best = ranked.groupby("unique_id", observed=True).first()
     features["best_model"] = features["unique_id"].map(best["model"])
     features["best_mase"] = features["unique_id"].map(best["mase"])

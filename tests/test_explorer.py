@@ -26,6 +26,7 @@ from forecast_ladder.explorer import (
     load_published,
     load_raw_forecasts,
     load_sample_series,
+    load_timings,
     model_display_order,
     per_series_scores,
     repo_root,
@@ -142,10 +143,61 @@ def test_catalogue_has_one_row_per_series_and_agrees_with_the_headline():
 
 def test_catalogue_best_model_really_is_the_lowest_mase_on_that_series():
     cat = series_catalogue().set_index("unique_id")
-    per_fold = load_published("per_fold")
-    means = per_fold.groupby(["unique_id", "model"], observed=True)["mase"].mean()
-    for uid in list(cat.index[:25]):
-        assert cat.loc[uid, "best_model"] == means.loc[uid].idxmin()
+    means = load_published("per_fold").groupby(["unique_id", "model"], observed=True)["mase"].mean()
+    for uid in cat.index:
+        assert cat.loc[uid, "best_mase"] == pytest.approx(means.loc[uid].min())
+        assert means.loc[uid, cat.loc[uid, "best_model"]] == pytest.approx(means.loc[uid].min())
+
+
+def test_the_two_naive_implementations_score_identically_on_every_series():
+    """The cross-check the README reports, asserted rather than eyeballed.
+
+    This project implements the seasonal naive rather than importing one, because every
+    MASE in the results divides by a number derived from it. `statsforecast`'s own is run
+    alongside for exactly this comparison. They agree to the last bit on all 300 series.
+    """
+    means = (
+        load_published("per_fold")
+        .groupby(["unique_id", "model"], observed=True)["mase"]
+        .mean()
+        .unstack("model")
+    )
+    assert (means[FLOOR_MODEL] == means["SeasonalNaive (library)"]).all()
+
+
+def test_catalogue_breaks_ties_toward_the_cheaper_rung():
+    """Ties at the lowest MASE are real and `idxmin` would resolve them by row order.
+
+    The rule is lowest MASE, then lowest wall-clock, then name. It has to be deterministic,
+    and it should not credit a 700-second transformer on a series where a seven-line
+    baseline scored exactly the same.
+    """
+    cat = series_catalogue().set_index("unique_id")
+    means = (
+        load_published("per_fold")
+        .groupby(["unique_id", "model"], observed=True)["mase"]
+        .mean()
+        .unstack("model")
+    )
+    seconds = {
+        m: float(r["seconds"]) for r in load_timings().values() for m in r.get("models", [])
+    }
+
+    tied_seen = 0
+    for uid in cat.index:
+        row = means.loc[uid]
+        winners = sorted(row[row == row.min()].index)
+        if len(winners) > 1:
+            tied_seen += 1
+        cheapest = min(seconds.get(m, float("inf")) for m in winners)
+        chosen = cat.loc[uid, "best_model"]
+        assert chosen in winners
+        assert seconds.get(chosen, float("inf")) == cheapest
+
+    assert tied_seen >= 10, f"expected the known exact ties, saw {tied_seen}"
+    # The library naive can only ever draw with this project's, which is cheaper, so it
+    # never wins a series.
+    assert "SeasonalNaive (library)" not in set(cat["best_model"])
 
 
 def test_floor_holds_means_no_model_beat_the_floor_there():

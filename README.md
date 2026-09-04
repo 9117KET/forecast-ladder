@@ -255,7 +255,7 @@ is expensive and the analysis is not.
 python -m pytest tests/ -q
 ```
 
-**136 tests.** They cover the metrics against hand-computed values (including the asymmetry of
+**138 tests.** They cover the metrics against hand-computed values (including the asymmetry of
 pinball loss in both directions), the fold arithmetic and three separate leakage checks, the
 seasonal naive's weekday alignment and interval widening, the normalisation of each library's
 output, and a brute-force verification that newsvendor cost really is minimised at the
@@ -264,7 +264,7 @@ critical-ratio quantile.
 Expected numbers in the test suite were worked out on paper, not captured from a run. That
 distinction is the only thing that makes a test of a metric worth having.
 
-The 24 in `tests/test_explorer.py` are a different kind and are there because of the app.
+The 26 in `tests/test_explorer.py` are a different kind and are there because of the app.
 They assert that the committed artefacts still describe one coherent run — every forecast day
 has an actual, the published tables cover exactly the models in `results/raw/`, quantiles do
 not cross — and, the one worth having, that re-running the floor live under the frozen
